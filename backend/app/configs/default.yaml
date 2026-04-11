@@ -1,0 +1,14 @@
+llm
+  models
+    - provider: ollama
+      models: ["gemma4:26b", "qwen3.5:0.8b"]
+      endpoint: "http://localhost:11434"
+      key:""
+      api_version: "v1"
+
+vsr
+  models
+    - provider: Qwen
+      models: ["Qwen3-TTS-12Hz-1.7B-CustonVoice"]
+      path:"D:\projects\personal-projects\Cap1-TTS-ASR-SR-Dashboard\models\qwen\Qwen3-TTS-12Hz-1.7B-CustomVoice"
+  
