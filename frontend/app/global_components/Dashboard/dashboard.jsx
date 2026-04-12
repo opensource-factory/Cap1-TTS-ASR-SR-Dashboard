@@ -227,6 +227,7 @@ export const Dashboard = () => {
           language: selectedLanguage,
           text: trimmedPrompt,
           instruct: trimmedInstruct,
+          model_name: selectedTts,
         }),
       });
 

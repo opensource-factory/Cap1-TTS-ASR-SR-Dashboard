@@ -16,7 +16,7 @@ export const flattenTtsOptions = (ttsProviders = []) =>
   ttsProviders.flatMap((providerGroup) =>
     (providerGroup.models || []).map((model) => ({
       label: `${providerGroup.provider} / ${model}`,
-      value: `${providerGroup.provider}:${model}`,
+      value: model,
       provider: providerGroup.provider,
       model,
     }))
@@ -24,9 +24,7 @@ export const flattenTtsOptions = (ttsProviders = []) =>
 
 export const getVoiceOptionsForTts = (ttsProviders = [], selectedTts) => {
   const matchingProvider = ttsProviders.find((providerGroup) =>
-    (providerGroup.models || []).some(
-      (model) => `${providerGroup.provider}:${model}` === selectedTts
-    )
+    (providerGroup.models || []).some((model) => model === selectedTts)
   );
 
   if (!matchingProvider) {
