@@ -12,10 +12,14 @@ llm:
       key: ""
       api_version: "v1"
 
+    - provider: gemini
+      models: ["gemini-3-flash-preview", "gemini-flash-lite-latest"]
+      key: ""
+
 tts:
   models:
     - provider: Qwen
-      models: ["Qwen3-TTS-12Hz-0.6-CustonVoice"]
+      models: ["Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice", "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice"]
       voice: [vivian, serena, uncle_fu, dylan, eric, ryan, aiden, ono_anna, sohee]
       description:
         vivian:
