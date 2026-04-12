@@ -3,6 +3,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from app.configs.qwen_config import call_tts
 from app.configs.config import get_llm_providers, get_tts_providers
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
@@ -11,6 +12,14 @@ class VoiceBody(BaseModel):
     language: str
     text: str
     instruct: str
+    
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],  
+    allow_headers=["*"],  
+)
 
 @app.get("/health")
 def health_check():
