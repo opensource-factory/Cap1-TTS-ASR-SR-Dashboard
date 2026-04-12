@@ -1,0 +1,47 @@
+llm:
+  models:
+    - provider: ollama
+      models: ["gemma4:26b", "qwen3.5:0.8b"]
+      endpoint: "http://localhost:11434"
+      key: ""
+      api_version: "v1"
+    
+    - provider: claude
+      models: ["opus-4.6", "sonnet-4.6"]
+      endpoint: ""
+      key: ""
+      api_version: "v1"
+
+tts:
+  models:
+    - provider: Qwen
+      models: ["Qwen3-TTS-12Hz-0.6-CustonVoice"]
+      voice: [vivian, serena, uncle_fu, dylan, eric, ryan, aiden, ono_anna, sohee]
+      description:
+        vivian:
+          language: chinese
+          description: "Bright young female voice."
+        serena:
+          language: chinese
+          description: "Warm, gentle young female voice."
+        uncle_fu:
+          language: chinese
+          description: "Seasoned male voice, mellow timbre."
+        dylan:
+          language: "chinese (beijing)"
+          description: "Youthful Beijing male voice."
+        eric:
+          language: "chinese (sichuan)"
+          description: "Lively Chengdu male voice."
+        ryan:
+          language: english
+          description: "Dynamic male voice with rhythm."
+        aiden:
+          language: english
+          description: "Sunny American male voice."
+        ono_anna:
+          language: japanese
+          description: "Playful Japanese female voice."
+        sohee:
+          language: korean
+          description: "Warm Korean female voice."
