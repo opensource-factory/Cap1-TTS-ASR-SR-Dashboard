@@ -1,8 +1,5 @@
 import yaml
-import json
 from pathlib import Path
-
-
 
 
 def return_config_data():
