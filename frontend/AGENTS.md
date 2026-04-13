@@ -7,13 +7,16 @@ This version has breaking changes — APIs, conventions, and file structure may 
 # Frontend Notes
 
 - The homepage navbar is rendered from `app/page.js` via `./global_components/Navbar/Navbar`.
-- The homepage shell is now rendered through `app/global_components/Dashboard/dashboard.jsx`, which coordinates navbar state, the prompt bar, the visual chat history, and `/tts` submissions.
-- Navbar state and data fetching live in `app/global_components/Navbar/Navbar.jsx`.
+- The homepage shell is rendered through `app/global_components/Dashboard/dashboard.jsx`, which is now a thin entry component.
+- Dashboard page composition lives in `app/global_components/Dashboard/components/DashboardLayout.jsx`.
+- Dashboard state, config loading, derived selector state, `/tts` submissions, and audio URL cleanup live in `app/global_components/Dashboard/components/useDashboardState.js`.
+- Dashboard endpoint and prompt-state helpers live in `app/global_components/Dashboard/components/dashboardUtils.js`.
+- `app/global_components/Navbar/Navbar.jsx` is presentational and manages only navbar UI state such as the mobile menu toggle.
 - Shared navbar UI is split into `app/global_components/Navbar/components/`.
 - `MobileNavbar.jsx` handles the small-screen hamburger menu and uses `public/hamburger.svg`.
 - Navbar option mapping helpers and the info endpoint live in `app/global_components/Navbar/navbarUtils.js`.
 - The frontend reads the backend info API from `.env.local` using `NEXT_PUBLIC_INFO_API_ENDPOINT`.
-- The navbar currently fetches the `/info` payload and maps:
+- The dashboard state hook currently fetches the `/info` payload and maps:
   - LLM providers/models into the `LLM Name` dropdown
   - TTS providers/models into the `TTS Name` dropdown
   - TTS voice metadata into `Voice Actor` and `Language`
