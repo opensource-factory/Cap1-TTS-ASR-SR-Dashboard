@@ -1,7 +1,9 @@
 "use client";
 
 import { PromptSubmitButton } from "./components/PromptSubmitButton";
+import { PromptStreamToggle } from "./components/PromptStreamToggle";
 import { PromptTextarea } from "./components/PromptTextarea";
+import { PromptThinkToggle } from "./components/PromptThinkToggle";
 
 export const Promptbar = ({
   prompt,
@@ -9,6 +11,12 @@ export const Promptbar = ({
   instruct,
   setInstruct,
   showInstruct,
+  showThinkToggle,
+  isThinkingEnabled,
+  setIsThinkingEnabled,
+  showStreamingToggle,
+  isStreamingEnabled,
+  setIsStreamingEnabled,
   onSubmit,
   isSubmitting,
   disabled,
@@ -46,6 +54,22 @@ export const Promptbar = ({
               disabled={disabled || isSubmitting}
               placeholder="Instruct"
               className="lg:basis-[30%]"
+            />
+          ) : null}
+
+          {showThinkToggle ? (
+            <PromptThinkToggle
+              enabled={isThinkingEnabled}
+              onToggle={() => setIsThinkingEnabled((currentValue) => !currentValue)}
+              disabled={disabled || isSubmitting}
+            />
+          ) : null}
+
+          {showStreamingToggle ? (
+            <PromptStreamToggle
+              enabled={isStreamingEnabled}
+              onToggle={() => setIsStreamingEnabled((currentValue) => !currentValue)}
+              disabled={disabled || isSubmitting}
             />
           ) : null}
 
