@@ -3,3 +3,6 @@ fastapi
 soundfile
 qwen_tts
 pyyaml
+langchain-ollama
+langchain
+langchain-core
