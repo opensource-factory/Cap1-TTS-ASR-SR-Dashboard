@@ -1,12 +1,24 @@
 "use client";
 
+const metadataValues = (metadata = {}) =>
+  [
+    metadata.name,
+    metadata.language,
+    metadata.ttsName,
+    metadata.llmName,
+    metadata.think,
+    metadata.stream,
+  ].filter(Boolean);
+
 export const UserMessageBubble = ({ prompt, instruct, metadata }) => (
   <div className="max-w-xl rounded-3xl rounded-br-md bg-violet-600 px-4 py-3 text-white shadow-sm shadow-violet-950/20">
-    {metadata ? (
+    {metadataValues(metadata).length > 0 ? (
       <div className="mb-3 flex flex-wrap justify-end gap-2 text-xs text-white/75">
-        <span className="rounded-full bg-white/14 px-2.5 py-1">{metadata.name}</span>
-        <span className="rounded-full bg-white/14 px-2.5 py-1">{metadata.language}</span>
-        <span className="rounded-full bg-white/14 px-2.5 py-1">{metadata.ttsName}</span>
+        {metadataValues(metadata).map((value) => (
+          <span key={value} className="rounded-full bg-white/14 px-2.5 py-1">
+            {value}
+          </span>
+        ))}
       </div>
     ) : null}
     {instruct ? (
