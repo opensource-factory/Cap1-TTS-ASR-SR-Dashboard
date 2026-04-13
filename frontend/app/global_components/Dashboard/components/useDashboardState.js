@@ -8,7 +8,14 @@ import {
   getVoiceOptionsForTts,
   infoEndpoint,
 } from "../../Navbar/navbarUtils";
-import { getPromptDisabledReason, getTtsEndpoint } from "./dashboardUtils";
+import {
+  getChatEndpoint,
+  getLlmServiceName,
+  getNormalizedLlmModelName,
+  getPromptDisabledReason,
+  getTokenMetadata,
+  getTtsEndpoint,
+} from "./dashboardUtils";
 
 export const useDashboardState = () => {
   const [mode, setMode] = useState("TTS");
@@ -23,12 +30,15 @@ export const useDashboardState = () => {
   const [configError, setConfigError] = useState("");
   const [prompt, setPrompt] = useState("");
   const [instruct, setInstruct] = useState("");
+  const [isThinkingEnabled, setIsThinkingEnabled] = useState(false);
+  const [isStreamingEnabled, setIsStreamingEnabled] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [conversation, setConversation] = useState([]);
   const conversationRef = useRef([]);
 
   const ttsEndpoint = useMemo(() => getTtsEndpoint(), []);
+  const chatEndpoint = useMemo(() => getChatEndpoint(), []);
   const showTtsSelector = mode === "TTS" || mode === "TTS+LLM";
   const showLlmSelector = mode === "LLM" || mode === "TTS+LLM";
   const voiceOptions = getVoiceOptionsForTts(ttsProviders, selectedTts);
@@ -44,13 +54,19 @@ export const useDashboardState = () => {
       : "";
   const selectedTtsLabel =
     ttsOptions.find((option) => option.value === selectedTts)?.label || selectedTts;
+  const selectedLlmLabel =
+    llmOptions.find((option) => option.value === selectedLlm)?.label || selectedLlm;
   const promptDisabledReason = getPromptDisabledReason({
+    mode,
     isLoadingConfig,
     configError,
     showTtsSelector,
+    showLlmSelector,
     ttsEndpoint,
+    chatEndpoint,
     selectedVoice,
     selectedLanguage,
+    selectedLlm,
   });
   const isPromptDisabled = Boolean(promptDisabledReason);
 
@@ -153,6 +169,9 @@ export const useDashboardState = () => {
 
     const trimmedPrompt = prompt.trim();
     const trimmedInstruct = instruct.trim();
+    const llmServiceName = getLlmServiceName(selectedLlm);
+    const normalizedLlmModelName = getNormalizedLlmModelName(selectedLlm);
+    const isLlmMode = mode === "LLM";
     const nextTurnId =
       typeof crypto !== "undefined" && crypto.randomUUID
         ? crypto.randomUUID()
@@ -160,18 +179,43 @@ export const useDashboardState = () => {
 
     setConversation((currentConversation) => [
       ...currentConversation,
-      {
-        id: nextTurnId,
-        prompt: trimmedPrompt,
-        instruct: trimmedInstruct,
-        metadata: {
-          name: selectedVoice,
-          language: selectedLanguage,
-          ttsName: selectedTtsLabel,
-        },
-        audioUrl: "",
-        status: "pending",
-      },
+      isLlmMode
+        ? {
+            id: nextTurnId,
+            prompt: trimmedPrompt,
+            instruct: "",
+            metadata: {
+              llmName: selectedLlmLabel,
+              think: isThinkingEnabled ? "Think On" : "Think Off",
+              stream: isStreamingEnabled ? "Stream On" : "Stream Off",
+            },
+            audioUrl: "",
+            thinkingText: "",
+            responseText: "",
+            outputType: "text",
+            status: "pending",
+          }
+        : {
+            id: nextTurnId,
+            prompt: trimmedPrompt,
+            instruct: trimmedInstruct,
+            metadata: {
+              name: selectedVoice,
+              language: selectedLanguage,
+              ttsName: selectedTtsLabel,
+              ...(showLlmSelector
+                ? {
+                    llmName: selectedLlmLabel,
+                    think: isThinkingEnabled ? "Think On" : "Think Off",
+                  }
+                : {}),
+            },
+            audioUrl: "",
+            thinkingText: "",
+            responseText: "",
+            outputType: "audio",
+            status: "pending",
+          },
     ]);
     setPrompt("");
     setInstruct("");
@@ -180,23 +224,177 @@ export const useDashboardState = () => {
       setIsSubmitting(true);
       setSubmitError("");
 
-      const response = await fetch(ttsEndpoint, {
+      const response = await fetch(isLlmMode ? chatEndpoint : ttsEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          accept: "audio/wav",
+          accept: isLlmMode
+            ? isStreamingEnabled
+              ? "application/x-ndjson"
+              : "application/json"
+            : "audio/wav",
         },
-        body: JSON.stringify({
-          name: selectedVoice,
-          language: selectedLanguage,
-          text: trimmedPrompt,
-          instruct: trimmedInstruct,
-          model_name: selectedTts,
-        }),
+        body: JSON.stringify(
+          isLlmMode
+            ? {
+                service_name: llmServiceName,
+                user_chat: trimmedPrompt,
+                model: normalizedLlmModelName,
+                reason: isThinkingEnabled,
+                stream: isStreamingEnabled,
+              }
+            : {
+                name: selectedVoice,
+                language: selectedLanguage,
+                text: trimmedPrompt,
+                instruct: trimmedInstruct,
+                model_name: selectedTts,
+              }
+        ),
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to generate audio (${response.status})`);
+        throw new Error(
+          isLlmMode
+            ? `Failed to generate response (${response.status})`
+            : `Failed to generate audio (${response.status})`
+        );
+      }
+
+      if (isLlmMode) {
+        if (isStreamingEnabled) {
+          if (!response.body) {
+            throw new Error("Streaming response body is unavailable.");
+          }
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let streamedText = "";
+          let streamedThinkingText = "";
+          let buffer = "";
+          let finalTokenMetadata = {};
+
+          while (true) {
+            const { value, done } = await reader.read();
+
+            if (value) {
+              buffer += decoder.decode(value, { stream: true });
+            }
+
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+
+            for (const line of lines) {
+              if (!line.trim()) {
+                continue;
+              }
+
+              const eventData = JSON.parse(line);
+
+              if (eventData.type === "thinking") {
+                streamedThinkingText += eventData.delta || "";
+              }
+
+              if (eventData.type === "content") {
+                streamedText += eventData.delta || "";
+              }
+
+              if (eventData.type === "metadata") {
+                finalTokenMetadata = getTokenMetadata(eventData);
+              }
+
+              setConversation((currentConversation) =>
+                currentConversation.map((turn) =>
+                  turn.id === nextTurnId
+                    ? {
+                        ...turn,
+                        thinkingText: streamedThinkingText,
+                        responseText: streamedText,
+                        metadata: {
+                          ...turn.metadata,
+                          ...finalTokenMetadata,
+                        },
+                      }
+                    : turn
+                )
+              );
+            }
+
+            await new Promise((resolve) => {
+              if (typeof requestAnimationFrame === "function") {
+                requestAnimationFrame(() => resolve());
+                return;
+              }
+
+              setTimeout(resolve, 0);
+            });
+
+            if (done) {
+              break;
+            }
+          }
+
+          buffer += decoder.decode();
+
+          if (buffer.trim()) {
+            const eventData = JSON.parse(buffer);
+
+            if (eventData.type === "thinking") {
+              streamedThinkingText += eventData.delta || "";
+            }
+
+            if (eventData.type === "content") {
+              streamedText += eventData.delta || "";
+            }
+
+            if (eventData.type === "metadata") {
+              finalTokenMetadata = getTokenMetadata(eventData);
+            }
+          }
+
+          setConversation((currentConversation) =>
+            currentConversation.map((turn) =>
+              turn.id === nextTurnId
+                ? {
+                    ...turn,
+                    thinkingText: streamedThinkingText,
+                    responseText: streamedText,
+                    metadata: {
+                      ...turn.metadata,
+                      ...finalTokenMetadata,
+                    },
+                    status: "ready",
+                  }
+                : turn
+            )
+          );
+
+          return;
+        }
+
+        const responseBody = await response.json();
+        const responseText = responseBody.content || "";
+        const thinkingText = responseBody.reasoning_content || "";
+        const tokenMetadata = getTokenMetadata(responseBody);
+
+        setConversation((currentConversation) =>
+          currentConversation.map((turn) =>
+            turn.id === nextTurnId
+              ? {
+                  ...turn,
+                  thinkingText,
+                  metadata: {
+                    ...turn.metadata,
+                    ...tokenMetadata,
+                  },
+                  responseText,
+                  status: "ready",
+                }
+              : turn
+          )
+        );
+
+        return;
       }
 
       const audioBlob = await response.blob();
@@ -271,6 +469,12 @@ export const useDashboardState = () => {
       instruct,
       setInstruct,
       showInstruct: showTtsSelector,
+      showThinkToggle: showLlmSelector,
+      isThinkingEnabled,
+      setIsThinkingEnabled,
+      showStreamingToggle: mode === "LLM",
+      isStreamingEnabled,
+      setIsStreamingEnabled,
       onSubmit: handleSubmit,
       isSubmitting,
       disabled: isPromptDisabled,
