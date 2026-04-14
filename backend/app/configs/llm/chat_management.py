@@ -38,6 +38,7 @@ class ChatManagement:
     def service_provider_selector(self):
         if self.service_name == "ollama":
             llm = configure_ollama_llm(
+                service_name=self.service_name,
                 model=self.model,
                 top_p=self.top_p,
                 top_k=self.top_k,
@@ -127,10 +128,18 @@ class ChatManagement:
                 final_usage_metadata = dict(chunk_usage_metadata)
 
         history.add_messages(
-        [
-            HumanMessage(content=self.user_chat),
-            AIMessage(content="".join(chunks)),
-        ])
+            [
+                HumanMessage(content=self.user_chat),
+                AIMessage(
+                    content="".join(chunks),
+                    additional_kwargs={
+                        "reasoning_content": "".join(reasoning_chunks),
+                    }
+                    if reasoning_chunks
+                    else {},
+                ),
+            ]
+        )
         yield (
             json.dumps(
                 {
