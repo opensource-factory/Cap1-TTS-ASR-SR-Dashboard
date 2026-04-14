@@ -1,5 +1,7 @@
 "use client";
 
+import { MarkdownText } from "./MarkdownText";
+
 const getMetadataValues = (metadata = {}) =>
   [
     metadata.name,
@@ -100,9 +102,10 @@ export const AudioMessageBubble = ({
             </div>
           ) : null}
           {responseText ? (
-            <p className="whitespace-pre-wrap text-sm leading-6 text-foreground/88">
-              {responseText}
-            </p>
+            <MarkdownText
+              content={responseText}
+              className="text-sm leading-6 text-foreground/88"
+            />
           ) : (
             <p className="text-sm text-foreground/60">Generating...</p>
           )}
@@ -145,7 +148,10 @@ export const AudioMessageBubble = ({
             </p>
           </div>
         ) : null}
-        <p className="whitespace-pre-wrap text-sm leading-6 text-foreground/88">{responseText}</p>
+        <MarkdownText
+          content={responseText}
+          className="text-sm leading-6 text-foreground/88"
+        />
       </div>
     );
   }
