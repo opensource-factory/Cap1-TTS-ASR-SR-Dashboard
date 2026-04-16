@@ -49,3 +49,17 @@ tts:
         sohee:
           language: korean
           description: "Warm Korean female voice."
+      
+    - provider: Kokoro
+      models: ['kokoro']
+      voice: ['af_heart', 'jf_alpha']
+      description:
+        af_heart:
+          language: english
+          description: "Female A+"
+        jf_alpha:
+          language: japanese
+          description: "Female C+"
+
+
+      
