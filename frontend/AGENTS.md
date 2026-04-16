@@ -36,7 +36,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
   - `/tts` for TTS-backed submits
   - `/chat` for pure LLM submits
 - The frontend currently submits:
-  - `POST /tts` with `{ name, language, text, instruct, model_name }`
+  - `POST /tts` with `{ service_name, name, language, text, instruct, model_name, stream }`
   - `POST /chat` with `{ service_name, user_chat, model, reason, stream }`
 - The visual conversation area lives in `app/global_components/Visual/` and renders chat-style turns:
   - User prompt/instruct bubble on the right.

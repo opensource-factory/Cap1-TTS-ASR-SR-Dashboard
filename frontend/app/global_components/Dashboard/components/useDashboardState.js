@@ -15,6 +15,7 @@ import {
   getPromptDisabledReason,
   getTokenMetadata,
   getTtsEndpoint,
+  getTtsServiceName,
 } from "./dashboardUtils";
 
 export const useDashboardState = () => {
@@ -171,6 +172,7 @@ export const useDashboardState = () => {
     const trimmedInstruct = instruct.trim();
     const llmServiceName = getLlmServiceName(selectedLlm);
     const normalizedLlmModelName = getNormalizedLlmModelName(selectedLlm);
+    const ttsServiceName = getTtsServiceName(ttsOptions, selectedTts);
     const isLlmMode = mode === "LLM";
     const nextTurnId =
       typeof crypto !== "undefined" && crypto.randomUUID
@@ -244,11 +246,13 @@ export const useDashboardState = () => {
                 stream: isStreamingEnabled,
               }
             : {
+                service_name: ttsServiceName,
                 name: selectedVoice,
                 language: selectedLanguage,
                 text: trimmedPrompt,
                 instruct: trimmedInstruct,
                 model_name: selectedTts,
+                stream: false,
               }
         ),
       });

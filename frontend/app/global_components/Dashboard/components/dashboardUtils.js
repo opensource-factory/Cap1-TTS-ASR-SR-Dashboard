@@ -53,6 +53,9 @@ export const getLlmServiceName = (selectedLlm = "") => {
   return firstColonIndex === -1 ? "" : selectedLlm.slice(0, firstColonIndex);
 };
 
+export const getTtsServiceName = (ttsOptions = [], selectedTts = "") =>
+  ttsOptions.find((option) => option.value === selectedTts)?.provider || "";
+
 export const getPromptDisabledReason = ({
   mode,
   isLoadingConfig,
