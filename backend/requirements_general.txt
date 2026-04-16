@@ -6,3 +6,9 @@ pyyaml
 langchain-ollama
 langchain
 langchain-core
+kokoro>=0.9.2 
+pyopenjtalk
+fugashi
+unidic-lite
+jaconv
+mojimoji
