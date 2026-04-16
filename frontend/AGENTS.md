@@ -6,6 +6,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # Frontend Notes
 
+- Hard rule: frontend files should stay around 100 lines. If a component, hook, or utility grows past roughly 100 lines, split it into smaller components/hooks/utils before adding more logic.
 - The homepage navbar is rendered from `app/page.js` via `./global_components/Navbar/Navbar`.
 - The homepage shell is rendered through `app/global_components/Dashboard/dashboard.jsx`, which is now a thin entry component.
 - Dashboard page composition lives in `app/global_components/Dashboard/components/DashboardLayout.jsx`.
