@@ -36,6 +36,7 @@ export const Visual = ({ conversation }) => {
             <div className="flex justify-start">
               <AudioMessageBubble
                 audioUrl={turn.audioUrl}
+                audioSegments={turn.audioSegments}
                 thinkingText={turn.thinkingText}
                 responseText={turn.responseText}
                 outputType={turn.outputType}
