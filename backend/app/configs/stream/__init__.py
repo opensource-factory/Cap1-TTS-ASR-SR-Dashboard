@@ -5,7 +5,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.configs.stream.tts_llm_management import TTSLLMManagement
-from app.configs.tts import (
+from app.configs.tts.utils import (
     infer_tts_service_name,
     normalize_tts_model_name,
     normalize_tts_service_name,

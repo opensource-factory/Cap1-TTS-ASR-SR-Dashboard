@@ -1,17 +1,15 @@
 import base64
-import io
 import json
+import os
 import re
+import urllib.error
+import urllib.request
 from typing import Iterator
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from kokoro import KPipeline
-import soundfile as sf
-import torch
 
 from app.configs.llm.chat_management import ChatManagement
-from app.configs.tts.kokoro.config import LANGUAGE_MAP
-from app.configs.tts.tts_management import TTSManagement
+from app.configs.tts.kokoro.constants import LANGUAGE_MAP
 
 
 PAUSE_MARKER_RE = re.compile(r"[,.;:!?،、，；：।。！？\n]")
@@ -52,7 +50,6 @@ class TTSLLMManagement:
         self.language = language
         self.instruct = instruct
         self.tts_model_name = tts_model_name
-        self._kokoro_pipeline = None
         self._resolved_language = language
 
     def _build_chat_management(self, stream: bool = True, system_prompt: str | None = None) -> ChatManagement:
@@ -170,69 +167,54 @@ class TTSLLMManagement:
     def _is_kokoro_service(self) -> bool:
         return (self.tts_service_name or "").strip().lower() == "kokoro"
 
-    def _get_kokoro_pipeline(self) -> KPipeline:
-        if self._kokoro_pipeline is not None:
-            return self._kokoro_pipeline
-
-        language_code = LANGUAGE_MAP.get((self._get_effective_language() or "").strip().lower())
-        if language_code is None:
-            raise ValueError(f"Unsupported Kokoro language: {self._get_effective_language()}")
-
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        self._kokoro_pipeline = KPipeline(
-            lang_code=language_code,
-            repo_id="hexgrad/Kokoro-82M",
-            device=device,
-        )
-        return self._kokoro_pipeline
-
-    def _encode_audio_chunk(self, audio_data) -> str:
-        if audio_data is None:
-            raise ValueError("No audio data was produced")
-
-        if hasattr(audio_data, "detach"):
-            audio_data = audio_data.detach().cpu().numpy()
-
-        buffer = io.BytesIO()
-        sf.write(buffer, audio_data, 24000, format="WAV")
-        buffer.seek(0)
-        audio_bytes = buffer.read()
-        if not audio_bytes:
-            raise ValueError("Audio chunk was empty")
-        return base64.b64encode(audio_bytes).decode("ascii")
-
-    def _stream_native_kokoro_audio(self, text: str) -> list[str]:
-        prepared_text = self._prepare_text_for_tts(text)
-        if not prepared_text:
-            return []
-
-        pipeline = self._get_kokoro_pipeline()
-        audio_chunks: list[str] = []
-
-        for result in pipeline(prepared_text, voice=self.name, split_pattern=None):
-            if result.audio is None:
-                continue
-            audio_chunks.append(self._encode_audio_chunk(result.audio))
-
-        return audio_chunks
-
     def _synthesize_sentence_audio(self, sentence: str) -> str:
         prepared_text = self._prepare_text_for_tts(sentence)
         if not prepared_text:
             raise ValueError("No speakable text was available for audio generation")
 
-        audio_buffer = TTSManagement(
-            service_name=self.tts_service_name,
-            name=self.name,
-            language=self._get_effective_language(),
-            text=prepared_text,
-            instruct=self.instruct,
-            model_name=self.tts_model_name,
-            stream=False,
-        ).service_selector()
+        tts_service_base_url = (os.getenv("TTS_SERVICE_BASE_URL") or "").strip()
+        if tts_service_base_url:
+            payload = json.dumps(
+                {
+                    "service_name": self.tts_service_name,
+                    "name": self.name,
+                    "language": self._get_effective_language(),
+                    "text": prepared_text,
+                    "instruct": self.instruct,
+                    "model_name": self.tts_model_name,
+                    "stream": False,
+                }
+            ).encode("utf-8")
+            request = urllib.request.Request(
+                f"{tts_service_base_url.rstrip('/')}/tts",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
 
-        audio_buffer.seek(0)
-        audio_bytes = audio_buffer.read()
+            try:
+                with urllib.request.urlopen(request, timeout=120) as response:
+                    audio_bytes = response.read()
+            except urllib.error.HTTPError as exc:
+                raise ValueError(f"TTS service returned HTTP {exc.code}") from exc
+            except urllib.error.URLError as exc:
+                raise ValueError(f"Unable to reach TTS service at {tts_service_base_url}") from exc
+        else:
+            from app.configs.tts.tts_management import TTSManagement
+
+            audio_buffer = TTSManagement(
+                service_name=self.tts_service_name,
+                name=self.name,
+                language=self._get_effective_language(),
+                text=prepared_text,
+                instruct=self.instruct,
+                model_name=self.tts_model_name,
+                stream=False,
+            ).service_selector()
+
+            audio_buffer.seek(0)
+            audio_bytes = audio_buffer.read()
+
         if not audio_bytes:
             raise ValueError("TTS provider returned empty audio")
         return base64.b64encode(audio_bytes).decode("ascii")
@@ -248,37 +230,18 @@ class TTSLLMManagement:
                 break
 
             try:
-                if self._is_kokoro_service():
-                    native_chunks = self._stream_native_kokoro_audio(candidate_text)
-                    if not native_chunks:
-                        break
-
-                    for native_chunk in native_chunks:
-                        audio_events.append(
-                            json.dumps(
-                                {
-                                    "type": "audio",
-                                    "index": next_index,
-                                    "audio": native_chunk,
-                                    "mime_type": "audio/wav",
-                                }
-                            )
-                            + "\n"
-                        )
-                        next_index += 1
-                else:
-                    audio_events.append(
-                        json.dumps(
-                            {
-                                "type": "audio",
-                                "index": next_index,
-                                "audio": self._synthesize_sentence_audio(candidate_text),
-                                "mime_type": "audio/wav",
-                            }
-                        )
-                        + "\n"
+                audio_events.append(
+                    json.dumps(
+                        {
+                            "type": "audio",
+                            "index": next_index,
+                            "audio": self._synthesize_sentence_audio(candidate_text),
+                            "mime_type": "audio/wav",
+                        }
                     )
-                    next_index += 1
+                    + "\n"
+                )
+                next_index += 1
 
                 remaining_buffer = next_buffer
             except ValueError:
@@ -334,37 +297,14 @@ class TTSLLMManagement:
             force_flush=True,
         )
         if trailing_sentence and self._normalized_text_length(trailing_sentence) > 0:
-            if self._is_kokoro_service():
-                native_chunks = self._stream_native_kokoro_audio(trailing_sentence)
-                if native_chunks:
-                    for native_chunk in native_chunks:
-                        yield json.dumps(
-                            {
-                                "type": "audio",
-                                "index": sentence_index,
-                                "audio": native_chunk,
-                                "mime_type": "audio/wav",
-                            }
-                        ) + "\n"
-                        sentence_index += 1
-                else:
-                    yield json.dumps(
-                        {
-                            "type": "audio",
-                            "index": sentence_index,
-                            "audio": self._synthesize_sentence_audio(trailing_sentence),
-                            "mime_type": "audio/wav",
-                        }
-                    ) + "\n"
-            else:
-                yield json.dumps(
-                    {
-                        "type": "audio",
-                        "index": sentence_index,
-                        "audio": self._synthesize_sentence_audio(trailing_sentence),
-                        "mime_type": "audio/wav",
-                    }
-                ) + "\n"
+            yield json.dumps(
+                {
+                    "type": "audio",
+                    "index": sentence_index,
+                    "audio": self._synthesize_sentence_audio(trailing_sentence),
+                    "mime_type": "audio/wav",
+                }
+            ) + "\n"
 
         full_content = "".join(content_chunks)
         full_reasoning = "".join(reasoning_chunks)
