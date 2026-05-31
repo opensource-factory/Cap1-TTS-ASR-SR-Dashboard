@@ -19,7 +19,7 @@ Current providers configured in this repo:
 
 Example configured models:
 
-- LLM: `gemma4:26b`, `qwen3.5:0.8b`, `opus-4.6`, `sonnet-4.6`, `gemini-3-flash-preview`
+- LLM: `qwen3-coder-next:latest`, `gemma4:latest`, `qwen3-coder:latest`, `qwen3.5:0.8b`, `gemma4:e4b`, `opus-4.6`, `sonnet-4.6`, `gemini-3-flash-preview`
 - TTS: `Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice`, `Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice`, `kokoro`
 
 ## Project Structure
@@ -69,16 +69,30 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements_torch.txt
 pip install -r requirements_general.txt
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Backend routes exposed by `app.main`:
+Run the split services in separate shells:
 
-- `GET /health`
-- `GET /info`
-- `POST /chat`
-- `POST /tts`
-- `POST /stream`
+```bash
+cd backend
+source .venv/bin/activate
+uvicorn app.tts.main:app --reload --host 0.0.0.0 --port 8001
+```
+
+```bash
+cd backend
+source .venv/bin/activate
+uvicorn app.llm.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+The LLM service expects the TTS service at `http://127.0.0.1:8001` by default. Set `TTS_SERVICE_BASE_URL` if you want to point it elsewhere.
+
+Backend routes exposed by the split services:
+
+- LLM service: `GET /health`, `GET /info`, `POST /chat`, `POST /stream`
+- TTS service: `GET /health`, `GET /info`, `POST /tts`
+
+For the legacy all-in-one backend, `uvicorn app.main:app --reload --host 0.0.0.0 --port 8000` still works.
 
 ### Frontend
 
@@ -109,7 +123,7 @@ Example payload:
 {
   "service_name": "ollama",
   "user_chat": "Tell me a short story in less than 300 words",
-  "model": "qwen3.5:0.8b",
+  "model": "qwen3-coder-next:latest",
   "stream": true,
   "reason": false
 }
