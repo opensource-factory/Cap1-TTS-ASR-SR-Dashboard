@@ -4,12 +4,10 @@ import soundfile as sf
 import torch
 from kokoro import KPipeline
 
+from app.configs.tts.kokoro.constants import LANGUAGE_MAP
+
 
 SUPPORTED_MODELS = {"kokoro"}
-LANGUAGE_MAP = {
-    "english": "a",
-    "japanese": "j",
-}
 
 
 def call_tts(
